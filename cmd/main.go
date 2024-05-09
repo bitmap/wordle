@@ -7,15 +7,15 @@ import (
 	"os"
 	"strings"
 
-	color "github.com/bitmap/wordle-cli/internal"
+	answers "github.com/bitmap/wordle-cli/internal/answers"
+	color "github.com/bitmap/wordle-cli/internal/color"
 )
 
 const wordLength = 5
 const totalGuesses int8 = 6
 const emptySpaceRune = '*'
 
-// TODO: implement random word selection
-const correctAnswer = "spicy"
+var correctAnswer = answers.RandomAnswer()
 
 type Guess struct {
 	value      rune
@@ -124,6 +124,6 @@ func main() {
 			fmt.Println("🎉 Correct! You won in " + fmt.Sprint(guessCount) + " guesses.")
 		}
 	} else {
-		fmt.Println("😓 Sorry, try again.")
+		fmt.Println("😓 Sorry, the answer was " + color.Cyan + correctAnswer + color.Reset + ". Try again.")
 	}
 }
