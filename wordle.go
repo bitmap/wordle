@@ -2,14 +2,13 @@
 package main
 
 import (
-	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/bitmap/wordle/internal/color"
+	"github.com/bitmap/wordle/internal/prompt"
 	"github.com/bitmap/wordle/internal/words"
 )
 
@@ -32,33 +31,6 @@ type KeyboardMap map[rune]bool
 var gameGrid = GameGrid{[wordLength]Guess{}}
 var keyboardMap = KeyboardMap{}
 var keySlice = []rune("abcdefghijklmnopqrstuvwxyz")
-
-// Prompt the user to enter a string
-func guessPrompt(input string) (string, error) {
-	var prompt string
-	reader := bufio.NewReader(os.Stdin)
-	for {
-		fmt.Fprint(os.Stderr, input+" ")
-		prompt, _ = reader.ReadString('\n')
-		if prompt != "" {
-			break
-		}
-	}
-
-	prompt = strings.TrimSpace(strings.ToLower(prompt))
-
-	// Display an error if the user doesn't input enough chars
-	if len(prompt) != 5 {
-		return "", errors.New("your guess must be 5 letters long")
-	}
-
-	// Check to see if word is allowed
-	if !words.IsValidWord(prompt) {
-		return "", errors.New("invalid word")
-	}
-
-	return prompt, nil
-}
 
 // Print the current state of the game
 func printGameGrid() {
@@ -145,7 +117,7 @@ func main() {
 		printKeyboard()
 
 		// Get user input
-		currentGuess, err := guessPrompt("\n  Guess?>")
+		currentGuess, err := prompt.Guess()
 
 		if err != nil {
 			clearScreen()
