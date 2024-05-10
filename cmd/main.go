@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/bitmap/wordle-cli/internal/allowlist"
 	answers "github.com/bitmap/wordle-cli/internal/answers"
 	color "github.com/bitmap/wordle-cli/internal/color"
 )
@@ -90,7 +91,11 @@ func main() {
 			continue
 		}
 
-		// currentGuess := grid[guessCount]
+		// Check to see if word is allowed
+		if !allowlist.IsValidWord(currentGuess) {
+			fmt.Println(color.Red + "\nInvalid word" + color.Reset)
+			continue
+		}
 
 		for index := range grid[guessCount] {
 			// Set the value to the corresponding rune char from the guess
