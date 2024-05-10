@@ -3,8 +3,10 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/bitmap/wordle-cli/internal/color"
@@ -32,7 +34,7 @@ var keyboardMap = KeyboardMap{}
 var keySlice = []rune("abcdefghijklmnopqrstuvwxyz")
 
 // Prompt the user to enter a string
-func guessPrompt(input string) string {
+func guessPrompt(input string) (string, error) {
 	var prompt string
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -42,13 +44,26 @@ func guessPrompt(input string) string {
 			break
 		}
 	}
-	return strings.TrimSpace(strings.ToLower(prompt))
+
+	prompt = strings.TrimSpace(strings.ToLower(prompt))
+
+	// Display an error if the user doesn't input enough chars
+	if len(prompt) != 5 {
+		return "", errors.New("your guess must be 5 letters long")
+	}
+
+	// Check to see if word is allowed
+	if !words.IsValidWord(prompt) {
+		return "", errors.New("invalid word")
+	}
+
+	return prompt, nil
 }
 
 // Print the current state of the game
 func printGameGrid() {
 	for i := range gameGrid {
-		fmt.Print("   ")
+		fmt.Print(" ")
 
 		for j := range gameGrid[i] {
 			currentChar := gameGrid[i][j]
@@ -64,13 +79,12 @@ func printGameGrid() {
 			fmt.Print(runeColor + " " + string(currentChar.value) + " " + color.Reset)
 		}
 		fmt.Println()
-
 	}
 	fmt.Println()
 }
 
 func printKeyboard() {
-	fmt.Print("    ")
+	fmt.Print("  ")
 
 	// Print used keys a-m
 	for _, v := range keySlice[0:13] {
@@ -82,7 +96,7 @@ func printKeyboard() {
 	}
 
 	fmt.Println()
-	fmt.Print("    ")
+	fmt.Print("  ")
 
 	// Print used keys n-z
 	for _, v := range keySlice[13:] {
@@ -94,6 +108,12 @@ func printKeyboard() {
 	}
 
 	fmt.Println()
+}
+
+func clearScreen() {
+	c := exec.Command("clear")
+	c.Stdout = os.Stdout
+	c.Run()
 }
 
 func init() {
@@ -112,28 +132,24 @@ func init() {
 }
 
 func main() {
-	fmt.Println("\n  Welcome to Wordle")
+	clearScreen()
 	winFlag := false
 
 	// Loop until we're out of guesses
 	var guessCount int8 = 0
 	for guessCount < totalGuesses {
+		fmt.Println("\nWelcome to Wordle")
+
 		// Print state of the game
 		printGameGrid()
 		printKeyboard()
 
 		// Get user input
-		currentGuess := guessPrompt("\n    Guess?>")
+		currentGuess, err := guessPrompt("\n  Guess?>")
 
-		// Display an error if the user doesn't input enough chars
-		if len(currentGuess) != 5 {
-			fmt.Println(color.Red + "\nYour guess must be 5 letters long" + color.Reset)
-			continue
-		}
-
-		// Check to see if word is allowed
-		if !words.IsValidWord(currentGuess) {
-			fmt.Println(color.Red + "\n    Invalid word!" + color.Reset)
+		if err != nil {
+			clearScreen()
+			fmt.Print(color.Red + err.Error() + color.Reset)
 			continue
 		}
 
@@ -161,10 +177,12 @@ func main() {
 			winFlag = true
 			break
 		}
+		clearScreen()
 	}
 
 	// Print final game state
-	fmt.Println("      Game Over")
+	clearScreen()
+	fmt.Println("\n    Game Over")
 	printGameGrid()
 
 	if winFlag {
