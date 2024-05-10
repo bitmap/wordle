@@ -48,7 +48,7 @@ func printGameGrid() {
 				runeColor = color.Yellow
 			}
 
-			fmt.Print(runeColor + " " + string(currentChar.value) + " " + color.Reset)
+			fmt.Print(runeColor + " " + strings.ToUpper(string(currentChar.value)) + " " + color.Reset)
 		}
 		fmt.Println()
 	}
@@ -64,7 +64,7 @@ func printKeyboard() {
 		if keyboardMap[v] {
 			keyColor = color.Gray
 		}
-		print(keyColor + string(v) + color.Reset)
+		print(keyColor + strings.ToUpper(string(v)) + color.Reset)
 	}
 
 	fmt.Println()
@@ -76,7 +76,7 @@ func printKeyboard() {
 		if keyboardMap[v] {
 			keyColor = color.Gray
 		}
-		print(keyColor + string(v) + color.Reset)
+		print(keyColor + strings.ToUpper(string(v)) + color.Reset)
 	}
 
 	fmt.Println()
