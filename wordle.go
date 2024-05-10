@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/bitmap/wordle-cli/internal/color"
-	"github.com/bitmap/wordle-cli/internal/words"
+	"github.com/bitmap/wordle/internal/color"
+	"github.com/bitmap/wordle/internal/words"
 )
 
 const wordLength = 5
