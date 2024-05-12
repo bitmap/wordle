@@ -22,11 +22,12 @@ type Guess struct {
 	value      rune
 	isCorrect  bool
 	isIncluded bool
+	isUsed     bool
 }
 
 // Game is a x * y grid
 type GameGrid [totalGuesses][wordLength]Guess
-type KeyboardMap map[rune]bool
+type KeyboardMap map[rune]Guess
 
 var gameGrid = GameGrid{[wordLength]Guess{}}
 var keyboardMap = KeyboardMap{}
@@ -55,16 +56,26 @@ func printGameGrid() {
 	fmt.Println()
 }
 
+func setKeyColor(key rune) {
+	keyColor := color.White
+
+	if keyboardMap[key].isCorrect {
+		keyColor = color.Green
+	} else if keyboardMap[key].isIncluded {
+		keyColor = color.Yellow
+	} else if keyboardMap[key].isUsed {
+		keyColor = color.Gray
+	}
+
+	print(keyColor + strings.ToUpper(string(key)) + color.Reset)
+}
+
 func printKeyboard() {
 	fmt.Print("  ")
 
 	// Print used keys a-m
 	for _, v := range keySlice[0:13] {
-		keyColor := color.White
-		if keyboardMap[v] {
-			keyColor = color.Gray
-		}
-		print(keyColor + strings.ToUpper(string(v)) + color.Reset)
+		setKeyColor(v)
 	}
 
 	fmt.Println()
@@ -72,11 +83,7 @@ func printKeyboard() {
 
 	// Print used keys n-z
 	for _, v := range keySlice[13:] {
-		keyColor := color.White
-		if keyboardMap[v] {
-			keyColor = color.Gray
-		}
-		print(keyColor + strings.ToUpper(string(v)) + color.Reset)
+		setKeyColor(v)
 	}
 
 	fmt.Println()
@@ -99,7 +106,12 @@ func init() {
 	// Initialize the keyboard map. Keys from the keyboardMap are unsorted,
 	// so we just use the slice for display
 	for _, key := range keySlice {
-		keyboardMap[key] = false
+		keyboardMap[key] = Guess{
+			value:      key,
+			isUsed:     false,
+			isCorrect:  false,
+			isIncluded: false,
+		}
 	}
 }
 
@@ -126,18 +138,26 @@ func main() {
 		}
 
 		for index := range gameGrid[guessCount] {
-			char := currentGuess[index]
-			// Set the value to the corresponding rune char from the guess
-			gameGrid[guessCount][index].value = rune(char)
+			char := rune(currentGuess[index])
 
-			// Mark the character as used in the keyboard map
-			keyboardMap[rune(char)] = true
+			// Check if it's the same character at that index...
+			isCorrect := rune(correctAnswer[index]) == char
+			// ...or string contains the character elsewhere
+			isIncluded := strings.ContainsRune(correctAnswer, char)
 
-			// Check if it's the same character or string contains rune at all
-			if correctAnswer[index] == char {
-				gameGrid[guessCount][index].isCorrect = true
-			} else if strings.ContainsRune(correctAnswer, rune(char)) {
-				gameGrid[guessCount][index].isIncluded = true
+			// Update the values
+			gameGrid[guessCount][index].value = char
+			gameGrid[guessCount][index].isUsed = true
+			gameGrid[guessCount][index].isCorrect = isCorrect
+			gameGrid[guessCount][index].isIncluded = isIncluded
+
+			// Update the character in the keyboard map
+			keyboardMap[char] = Guess{
+				value:  char,
+				isUsed: true,
+				// Use previous values if new guess has different placements
+				isCorrect:  keyboardMap[char].isCorrect || isCorrect,
+				isIncluded: keyboardMap[char].isIncluded || isIncluded,
 			}
 		}
 
