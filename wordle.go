@@ -1,4 +1,4 @@
-// Wordle - a word game - for the command line
+// Wordle - a word game - for the command line.
 package main
 
 import (
@@ -12,121 +12,128 @@ import (
 	"github.com/bitmap/wordle/internal/words"
 )
 
-const wordLength = 5
-const totalGuesses int8 = 6
-const emptySpaceRune = '*'
+type letterState int
 
-var correctAnswer = words.RandomAnswer()
-
-type Guess struct {
-	value      rune
-	isCorrect  bool
-	isIncluded bool
-	isUsed     bool
+type guess struct {
+	value rune
+	state letterState
 }
 
-// Game is a x * y grid
-type GameGrid [totalGuesses][wordLength]Guess
-type KeyboardMap map[rune]Guess
+const (
+	_ letterState = iota
+	guessed
+	containsLetter
+	isCorrect
+)
 
-var gameGrid = GameGrid{[wordLength]Guess{}}
-var keyboardMap = KeyboardMap{}
-var keySlice = []rune("abcdefghijklmnopqrstuvwxyz")
+const wordLength uint8 = 5
+const totalGuesses uint8 = 6
+const emptySpaceRune = '•'
 
-// Print the current state of the game
-func printGameGrid() {
-	for i := range gameGrid {
+// Game is a x * y grid.
+var guessesGrid [totalGuesses][wordLength]guess
+
+// Map of all guessed letters.
+var guessedLetters = make(map[rune]guess)
+
+// This slice is used to init the map and display the guess map.
+const lettersSlice = "abcdefghijklmnopqrstuvwxyz"
+
+// Prints guess rune in color.
+func printGuessCharacter(guess guess) {
+	var keyColor string
+
+	switch guess.state {
+	case isCorrect:
+		keyColor = color.Green
+	case containsLetter:
+		keyColor = color.Yellow
+	case guessed:
+		keyColor = color.Gray
+	default:
+		keyColor = color.White
+	}
+
+	print(keyColor + strings.ToUpper(string(guess.value)) + color.Reset)
+}
+
+// Print the current state of the game.
+func printGuessesGrid() {
+	for i := range guessesGrid {
 		fmt.Print(" ")
-
-		for j := range gameGrid[i] {
-			currentChar := gameGrid[i][j]
-
-			// Set the color of the character
-			runeColor := color.White
-			if currentChar.isCorrect {
-				runeColor = color.Green
-			} else if currentChar.isIncluded {
-				runeColor = color.Yellow
-			}
-
-			fmt.Print(runeColor + " " + strings.ToUpper(string(currentChar.value)) + " " + color.Reset)
+		for j := range guessesGrid[i] {
+			currentChar := guessesGrid[i][j]
+			fmt.Print(" ")
+			printGuessCharacter(currentChar)
+			fmt.Print(" ")
 		}
 		fmt.Println()
 	}
 	fmt.Println()
 }
 
-func setKeyColor(key rune) {
-	keyColor := color.White
+// Print the map of guessed letters and their state.
+func printGuessedLettersMap() {
+	fmt.Print("  ")
 
-	if keyboardMap[key].isCorrect {
-		keyColor = color.Green
-	} else if keyboardMap[key].isIncluded {
-		keyColor = color.Yellow
-	} else if keyboardMap[key].isUsed {
-		keyColor = color.Gray
+	// Print used keys a-m.
+	for _, v := range lettersSlice[0:13] {
+		printGuessCharacter(guessedLetters[v])
 	}
 
-	print(keyColor + strings.ToUpper(string(key)) + color.Reset)
+	fmt.Println()
+	fmt.Print("  ")
+
+	// Print used keys n-z.
+	for _, v := range lettersSlice[13:] {
+		printGuessCharacter(guessedLetters[v])
+	}
+
+	fmt.Println()
 }
 
-func printKeyboard() {
-	fmt.Print("  ")
-
-	// Print used keys a-m
-	for _, v := range keySlice[0:13] {
-		setKeyColor(v)
+func initializeGame() {
+	// Initialize the game grid.
+	for i := range guessesGrid {
+		for j := range guessesGrid[i] {
+			guessesGrid[i][j] = guess{
+				value: emptySpaceRune,
+				state: 0,
+			}
+		}
 	}
 
-	fmt.Println()
-	fmt.Print("  ")
-
-	// Print used keys n-z
-	for _, v := range keySlice[13:] {
-		setKeyColor(v)
+	// Initialize the letters map. Keys from the guessedLetters are unsorted,
+	// so we just use the slice for display
+	for _, key := range lettersSlice {
+		guessedLetters[key] = guess{
+			value: key,
+			state: 0,
+		}
 	}
-
-	fmt.Println()
 }
 
 func clearScreen() {
-	c := exec.Command("clear")
-	c.Stdout = os.Stdout
-	c.Run()
-}
-
-func init() {
-	// Initialize the grid
-	for i := range gameGrid {
-		for j := range gameGrid[i] {
-			gameGrid[i][j].value = emptySpaceRune
-		}
-	}
-
-	// Initialize the keyboard map. Keys from the keyboardMap are unsorted,
-	// so we just use the slice for display
-	for _, key := range keySlice {
-		keyboardMap[key] = Guess{
-			value:      key,
-			isUsed:     false,
-			isCorrect:  false,
-			isIncluded: false,
-		}
-	}
+	cmd := exec.Command("clear")
+	cmd.Stdout = os.Stdout
+	cmd.Run()
 }
 
 func main() {
-	clearScreen()
-	winFlag := false
+	var correctAnswer = words.RandomAnswer()
+	var guessCount uint8 = 0
+	var winFlag = false
 
-	// Loop until we're out of guesses
-	var guessCount int8 = 0
+	initializeGame()
+	clearScreen()
+
+	// Loop until we're out of guesses.
 	for guessCount < totalGuesses {
 		fmt.Println("\nWelcome to Wordle")
 
 		// Print state of the game
-		printGameGrid()
-		printKeyboard()
+		printGuessesGrid()
+		printGuessedLettersMap()
 
 		// Get user input
 		currentGuess, err := prompt.Guess()
@@ -137,27 +144,35 @@ func main() {
 			continue
 		}
 
-		for index := range gameGrid[guessCount] {
-			char := rune(currentGuess[index])
+		for i := range guessesGrid[guessCount] {
+			charValue := rune(currentGuess[i])
+			var charState letterState
 
+			switch {
 			// Check if it's the same character at that index...
-			isCorrect := rune(correctAnswer[index]) == char
+			case rune(correctAnswer[i]) == charValue:
+				charState = isCorrect
 			// ...or string contains the character elsewhere
-			isIncluded := strings.ContainsRune(correctAnswer, char)
+			case strings.ContainsRune(correctAnswer, charValue):
+				charState = containsLetter
+			default:
+				charState = guessed
+			}
 
 			// Update the values
-			gameGrid[guessCount][index].value = char
-			gameGrid[guessCount][index].isUsed = true
-			gameGrid[guessCount][index].isCorrect = isCorrect
-			gameGrid[guessCount][index].isIncluded = isIncluded
+			guessesGrid[guessCount][i].value = charValue
+			guessesGrid[guessCount][i].state = charState
 
-			// Update the character in the keyboard map
-			keyboardMap[char] = Guess{
-				value:  char,
-				isUsed: true,
-				// Use previous values if new guess has different placements
-				isCorrect:  keyboardMap[char].isCorrect || isCorrect,
-				isIncluded: keyboardMap[char].isIncluded || isIncluded,
+			// For letters map, check previous state if placement differs
+			currentCharState := guessedLetters[charValue].state
+			if charState > currentCharState {
+				currentCharState = charState
+			}
+
+			// Update the character in the letters map
+			guessedLetters[charValue] = guess{
+				value: charValue,
+				state: charState,
 			}
 		}
 
@@ -175,7 +190,7 @@ func main() {
 	// Print final game state
 	clearScreen()
 	fmt.Println("\n    Game Over")
-	printGameGrid()
+	printGuessesGrid()
 
 	if winFlag {
 		if guessCount == 1 {
@@ -184,6 +199,11 @@ func main() {
 			fmt.Println("🎉 Correct! You won in " + fmt.Sprint(guessCount) + " guesses.")
 		}
 	} else {
-		fmt.Println("😓 Sorry, the answer was " + color.Green + correctAnswer + color.Reset + ". Try again.")
+		fmt.Println("😓 Sorry, the answer was " + color.Green + correctAnswer + color.Reset + ".")
+	}
+
+	// Ask user to play again
+	if prompt.Retry() {
+		main()
 	}
 }

@@ -10,19 +10,30 @@ import (
 	"github.com/bitmap/wordle/internal/words"
 )
 
-// Prompt the user to enter a string
-func Guess() (string, error) {
+// Returns trimmed & lowercase response to user input
+func promptString(str string) (string, error) {
 	var prompt string
+	var err error
+
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		fmt.Fprint(os.Stderr, "\n  Guess?> ")
-		prompt, _ = reader.ReadString('\n')
+		fmt.Fprint(os.Stderr, str)
+		prompt, err = reader.ReadString('\n')
 		if prompt != "" {
 			break
 		}
 	}
-
 	prompt = strings.TrimSpace(strings.ToLower(prompt))
+
+	return prompt, err
+}
+
+// Prompt the user to guess a word.
+func Guess() (string, error) {
+	prompt, err := promptString("\n  Guess?> ")
+	if err != nil {
+		panic(err)
+	}
 
 	// Display an error if the user doesn't input enough chars
 	if len(prompt) != 5 {
@@ -35,4 +46,18 @@ func Guess() (string, error) {
 	}
 
 	return prompt, nil
+}
+
+// Prompt the user to play again.
+func Retry() bool {
+	prompt, err := promptString("\nPlay again? [y/N]")
+	if err != nil {
+		panic(err)
+	}
+
+	if prompt == "y" || prompt == "Y" {
+		return true
+	}
+
+	return false
 }
