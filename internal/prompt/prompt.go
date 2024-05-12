@@ -55,7 +55,7 @@ func Retry() bool {
 		panic(err)
 	}
 
-	if prompt == "y" || prompt == "Y" {
+	if prompt == "y" {
 		return true
 	}
 
