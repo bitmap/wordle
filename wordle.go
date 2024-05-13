@@ -172,7 +172,7 @@ func main() {
 			// Update the character in the letters map
 			guessedLetters[charValue] = guess{
 				value: charValue,
-				state: charState,
+				state: currentCharState,
 			}
 		}
 
