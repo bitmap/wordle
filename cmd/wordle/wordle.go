@@ -6,16 +6,30 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"unicode"
 
 	"github.com/bitmap/wordle-cli/internal/color"
 	"github.com/bitmap/wordle-cli/internal/prompt"
 	"github.com/bitmap/wordle-cli/internal/words"
+	"golang.org/x/term"
 )
 
 const wordLength = 5
 const totalGuesses = 6
 const emptySpaceRune = '•'
-const aplhabet = "abcdefghijklmnopqrstuvwxyz"
+
+// Indents that center the title and grid over the keyboard block.
+const (
+	gridIndent = 4
+	gridWidth  = wordLength * 3
+)
+
+// Keyboard rows, laid out and ordered like a QWERTY keyboard.
+var keyboard = [...]string{
+	"qwertyuiop",
+	"asdfghjkl",
+	"zxcvbnm",
+}
 
 type letterState int
 
@@ -56,8 +70,9 @@ var game gameGrid
 
 // Print the current state of the game.
 func (g gameGrid) render() {
+	indent := centerLine() - gridWidth/2
 	for i := range g {
-		fmt.Print(" ")
+		fmt.Print(strings.Repeat(" ", indent))
 		for j := range g[i] {
 			currentChar := g[i][j]
 			fmt.Print(" ")
@@ -88,33 +103,71 @@ var guessedLetters = letterMap{}
 
 // Print the map of guessed letters and their state.
 func (l letterMap) render() {
-	fmt.Print("  ")
+	// The widest row sets the block, and each row below it is staggered.
+	indent := centerLine() - len(keyboard[0]) + 1
+	for i, row := range keyboard {
+		fmt.Print(strings.Repeat(" ", indent+i))
 
-	// Print used keys a-m.
-	for _, v := range aplhabet[0:13] {
-		l[v].Render()
+		for _, v := range row {
+			l[v].Render()
+			fmt.Print(" ")
+		}
+
+		fmt.Println()
 	}
-
-	fmt.Println()
-	fmt.Print("  ")
-
-	// Print used keys n-z.
-	for _, v := range aplhabet[13:] {
-		l[v].Render()
-	}
-
-	fmt.Println()
 }
 
 // Initialize the letters map. Keys from the guessedLetters are unsorted,
 // so we just use the slice for display
 func (g letterMap) init() {
-	for _, key := range aplhabet {
-		guessedLetters[key] = guess{
-			value: key,
-			state: 0,
+	for _, row := range keyboard {
+		for _, key := range row {
+			guessedLetters[key] = guess{
+				value: key,
+				state: 0,
+			}
 		}
 	}
+}
+
+// The column everything is centered on. Falls back to the grid's own
+// middle when the terminal size isn't available, as when output is piped.
+func centerLine() int {
+	if cols, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && cols > 0 {
+		return cols / 2
+	}
+
+	return gridIndent + gridWidth/2
+}
+
+// Print a line centered on the screen. Color escapes take up no space on
+// screen, and emoji take up two columns, so neither can be measured by
+// counting runes alone.
+func printCentered(line string) {
+	var width int
+	var inEscape bool
+
+	for _, r := range line {
+		switch {
+		case r == '\033':
+			inEscape = true
+		case inEscape:
+			// Escapes run until their final letter.
+			if unicode.IsLetter(r) {
+				inEscape = false
+			}
+		case r > 0x2000:
+			width += 2
+		default:
+			width++
+		}
+	}
+
+	if pad := centerLine() - width/2; pad > 0 {
+		fmt.Print(strings.Repeat(" ", pad))
+	}
+
+	fmt.Println(line)
 }
 
 func clearScreen() {
@@ -131,28 +184,43 @@ func main() {
 		answer     = words.RandomAnswer()
 		winFlag    = false
 		guessCount = 0
+		lastError  string
 	)
 
 	game.init()
 	guessedLetters.init()
-	clearScreen()
+
+	// Draw everything above the prompt, showing the guess being typed in
+	// the current row. Called on every keystroke and on resize.
+	drawScreen := func(typing string) {
+		for i := range game[guessCount] {
+			value := emptySpaceRune
+			if i < len([]rune(typing)) {
+				value = []rune(typing)[i]
+			}
+
+			game[guessCount][i].value = value
+		}
+
+		clearScreen()
+		fmt.Println()
+		printCentered("Welcome to Wordle")
+		game.render()
+		guessedLetters.render()
+	}
 
 	// Loop until we're out of guesses.
 	for guessCount < totalGuesses {
-		fmt.Println("\nWelcome to Wordle")
-
-		// Print state of the game
-		game.render()
-		guessedLetters.render()
+		drawScreen("")
 
 		// Get user input
-		currentGuess, err := prompt.Guess()
+		currentGuess, err := prompt.Guess(lastError, drawScreen)
 
 		if err != nil {
-			clearScreen()
-			fmt.Print(color.Red + err.Error() + color.Reset)
+			lastError = err.Error()
 			continue
 		}
+		lastError = ""
 
 		for i := range game[guessCount] {
 			charValue := rune(currentGuess[i])
@@ -194,22 +262,22 @@ func main() {
 			winFlag = true
 			break
 		}
-		clearScreen()
 	}
 
 	// Print final game state
 	clearScreen()
-	fmt.Println("\n    Game Over")
+	fmt.Println()
+	printCentered("Game Over")
 	game.render()
 
 	if winFlag {
 		if guessCount == 1 {
-			fmt.Println("🫨 Woah! You got it right on the first try! Nice!")
+			printCentered("🫨 Woah! You got it right on the first try!")
 		} else {
-			fmt.Println("🎉 Correct! You won in " + fmt.Sprint(guessCount) + " guesses.")
+			printCentered("🎉 Correct! You won in " + fmt.Sprint(guessCount) + " guesses.")
 		}
 	} else {
-		fmt.Println("😓 Sorry, the answer was " + color.Green + answer + color.Reset + ".")
+		printCentered("😓 Sorry, the answer was " + color.Green + strings.ToUpper(answer) + color.Reset + ".")
 	}
 
 	// Ask user to play again

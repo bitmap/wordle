@@ -6,7 +6,7 @@ Wordle, for the command line, written in Go.
 
 ## Install
 
-Requires Go version 1.22 or later
+Requires Go version 1.27 or later
 ```bash
 go install github.com/bitmap/wordle-cli/cmd/wordle@latest
 ```
