@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bitmap/wordle/internal/words"
+	"github.com/bitmap/wordle-cli/internal/words"
 )
 
 // Returns trimmed & lowercase response to user input
