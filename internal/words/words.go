@@ -3,8 +3,7 @@ package words
 import "math/rand/v2"
 
 func RandomAnswer() string {
-	randomInt := rand.IntN(len(answerList) + 1)
-	return answerList[randomInt]
+	return answerList[rand.IntN(len(answerList))]
 }
 
 func IsValidWord(word string) bool {
