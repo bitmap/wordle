@@ -85,10 +85,10 @@ func (g gameGrid) render() {
 }
 
 // Initialize the game grid.
-func (g gameGrid) init() {
-	for i := range game {
-		for j := range game[i] {
-			game[i][j] = guess{
+func (g *gameGrid) init() {
+	for i := range g {
+		for j := range g[i] {
+			g[i][j] = guess{
 				value: emptySpaceRune,
 				state: 0,
 			}
@@ -117,12 +117,12 @@ func (l letterMap) render() {
 	}
 }
 
-// Initialize the letters map. Keys from the guessedLetters are unsorted,
-// so we just use the slice for display
-func (g letterMap) init() {
+// Initialize the letters map. Keys from the map are unsorted, so the
+// keyboard slice drives both this and the display.
+func (l letterMap) init() {
 	for _, row := range keyboard {
 		for _, key := range row {
-			guessedLetters[key] = guess{
+			l[key] = guess{
 				value: key,
 				state: 0,
 			}
@@ -179,7 +179,8 @@ func clearScreen() {
 	}
 }
 
-func main() {
+// Play a single game through to its result screen.
+func playGame() {
 	var (
 		answer     = words.RandomAnswer()
 		winFlag    = false
@@ -280,8 +281,15 @@ func main() {
 		printCentered("😓 Sorry, the answer was " + color.Green + strings.ToUpper(answer) + color.Reset + ".")
 	}
 
-	// Ask user to play again
-	if prompt.Retry() {
-		main()
+}
+
+func main() {
+	// Loop rather than recurse, so a long session doesn't grow the stack.
+	for {
+		playGame()
+
+		if !prompt.Retry() {
+			return
+		}
 	}
 }
